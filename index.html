@@ -225,7 +225,91 @@
         }
 
         function calculateNorm() {
-            // your existing code for norm calculations here
+            const inputs = ['SiO2', 'Al2O3', 'Fe2O3', 'FeO', 'MgO', 'CaO', 'Na2O', 'K2O'];
+    const values = {};
+    let total = 0;
+
+    // Gather input values
+    inputs.forEach(id => {
+        const value = parseFloat(document.getElementById(id).value) || 0;
+        values[id] = value;
+        total += value;
+    });
+
+    if (total === 0) {
+        document.getElementById('result').textContent = "Please enter at least one value.";
+        return;
+    }
+
+    // Fe Adjustment Handling
+    const feAdjustment = document.getElementById('feAdjustment').value;
+    if (feAdjustment === 'constant') {
+        const FeRatio = parseFloat(document.getElementById('FeRatio').value) || 1.0;
+        // Adjust FeO/Fe2O3 ratio based on constant ratio
+        values.FeO = (values.FeO + values.Fe2O3) / (1 + FeRatio);
+        values.Fe2O3 = values.FeO * FeRatio;
+
+    } else if (feAdjustment === 'lemaitre') {
+        const igneousType = document.getElementById('igneousType').value;
+        // Apply specific Fe adjustments based on igneous type (Plutonic or Volcanic)
+        if (igneousType === 'plutonic') {
+            values.FeO *= 0.6;  // Example ratio adjustment for Plutonic rocks
+            values.Fe2O3 *= 1.4;
+        } else if (igneousType === 'volcanic') {
+            values.FeO *= 1.5;  // Example ratio adjustment for Volcanic rocks
+            values.Fe2O3 *= 0.7;
+        }
+
+    } else if (feAdjustment === 'middlemost') {
+        // Simple adjustment based on Middlemost method (example approach)
+        // Adjust FeO and Fe2O3 based on a predefined ratio, reflecting oxidation state
+        const totalFe = values.FeO + values.Fe2O3;
+        values.FeO = totalFe * 0.7;  // Assume 70% FeO in Middlemost method
+        values.Fe2O3 = totalFe * 0.3;  // Assume 30% Fe2O3 in Middlemost method
+
+    } else if (feAdjustment === 'specified') {
+        const specifiedMineral = document.getElementById('specifiedMineral').value.toLowerCase();
+        if (specifiedMineral === 'magnetite') {
+            values.FeO = 0.0;
+            values.Fe2O3 = values.FeO + values.Fe2O3;  // All Fe as Fe2O3 in Magnetite
+        } else if (specifiedMineral === 'hematite') {
+            values.FeO = 0.2 * values.FeO;  // Example: Hematite has a lower FeO content
+            values.Fe2O3 = values.FeO + values.Fe2O3;  // Higher Fe2O3 in Hematite
+        }
+    }
+
+    // Renormalize the total composition to 100%
+    total = 0;  // Reset total
+    Object.keys(values).forEach(key => {
+        total += values[key];
+    });
+    Object.keys(values).forEach(key => {
+        values[key] = (values[key] / total) * 100;  // Recalculate to make total 100%
+    });
+
+    // CIPW norm calculation (simplified version)
+    const norm = {
+        Quartz: Math.max(0, values.SiO2 - 0.5 * values.Al2O3 - values.Na2O - values.K2O),
+        Orthoclase: values.K2O * 5.9,
+        Albite: values.Na2O * 8.5,
+        Anorthite: values.CaO * 1.8,
+        Diopside: Math.min(values.MgO, values.CaO - values.Al2O3 / 2) * 3.5,
+        Hypersthene: (values.MgO - Math.min(values.MgO, values.CaO - values.Al2O3 / 2)) * 2.5,
+        Magnetite: values.Fe2O3 * 2.3,
+    };
+
+    // Display the results
+    let result = "Normalized Input:\n";
+    Object.keys(values).forEach(key => {
+        result += `${key}: ${values[key].toFixed(2)}%\n`;
+    });
+
+    result += "\nSimplified CIPW Norm:\n";
+    Object.keys(norm).forEach(key => {
+        result += `${key}: ${norm[key].toFixed(2)}%\n`;
+    });
+
+    document.getElementById('result').textContent = result;
         }
     </script>
 </body>
